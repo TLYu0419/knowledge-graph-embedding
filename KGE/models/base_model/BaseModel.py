@@ -54,6 +54,8 @@ class KGEModel:
         self.loss_fn = loss_fn
         self.ns_strategy = ns_strategy
         self.__n_workers = n_workers
+        self.train_loss_history = []
+        self.val_loss_history = []
 
     def train(self, train_X, val_X, metadata, epochs, batch_size,
               early_stopping_rounds=None, model_weights_initial=None,
@@ -123,8 +125,6 @@ class KGEModel:
 
         logging.info("[%s] Preparing for training..." % str(datetime.datetime.now()))
         train_iter, val_iter = self.__prepare_for_train(train_X=train_X, val_X=val_X)
-        train_loss_history = []
-        val_loss_history = []
         patience_count = 0
         
         # Start Training
@@ -146,16 +146,16 @@ class KGEModel:
                 
             train_loss /= self.__batch_count_train
             val_loss /= self.__batch_count_val
-            train_loss_history = self.__append_history_and_log(
-                loss = train_loss, loss_history=train_loss_history, summary_writer=train_logger, step=i
+            self.train_loss_history = self.__append_history_and_log(
+                loss = train_loss, loss_history=self.train_loss_history, summary_writer=train_logger, step=i
             )
             if val_X is not None:
-                val_loss_history = self.__append_history_and_log(
-                    loss = val_loss, loss_history=val_loss_history, summary_writer=val_logger, step=i
+                self.val_loss_history = self.__append_history_and_log(
+                    loss = val_loss, loss_history=self.val_loss_history, summary_writer=val_logger, step=i
                 )
-                epoch_bar.set_description("epoch: %i, train loss: %f, valid loss: %f" % (i, train_loss_history[i], val_loss_history[i]))
+                epoch_bar.set_description("epoch: %i, train loss: %f, valid loss: %f" % (i, self.train_loss_history[i], self.val_loss_history[i]))
             else:
-                epoch_bar.set_description("epoch: %i, train loss: %f" % (i, train_loss_history[i]))
+                epoch_bar.set_description("epoch: %i, train loss: %f" % (i, self.train_loss_history[i]))
 
             epoch_bar.refresh()
 
@@ -164,7 +164,7 @@ class KGEModel:
             if early_stopping_rounds is not None:
                 assert val_X is not None, "val_X should be given if want to check early stopping."
                 early_stop, patience_count = self.__check_early_stopping(
-                    metric_history=val_loss_history,
+                    metric_history=self.val_loss_history,
                     magnitude="larger",
                     patience_now=patience_count,
                     patience_max=early_stopping_rounds,
